@@ -30,6 +30,29 @@ export default function PostEditor({ mode, post }: Props) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
 
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  async function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-uploading the same file later
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/admin/uploads", { method: "POST", body: fd });
+    const data = await res.json().catch(() => ({}));
+    setUploading(false);
+
+    if (!res.ok || !data.url) {
+      setUploadError(data.error ?? `Upload failed (${res.status})`);
+      return;
+    }
+    setCoverImageUrl(data.url);
+  }
+
   // Auto-fill slug from title while it hasn't been hand-edited.
   const [slugLocked, setSlugLocked] = useState(mode === "edit");
   function onTitleChange(v: string) {
@@ -159,13 +182,41 @@ export default function PostEditor({ mode, post }: Props) {
       <aside className="editor-side">
         <div className="form-card">
           <div className="form-row">
-            <label htmlFor="cover">Cover image URL</label>
+            <label htmlFor="cover-file">Cover image · upload</label>
+            <input
+              id="cover-file"
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+              onChange={onUpload}
+              disabled={uploading}
+              style={{
+                fontFamily: "var(--mono)",
+                fontSize: 12,
+                padding: 8,
+                background: "var(--bone)",
+                cursor: uploading ? "wait" : "pointer",
+              }}
+            />
+            <div className="hint">
+              {uploading
+                ? "Uploading…"
+                : "JPG, PNG, WebP, GIF, AVIF · max 10 MB. Lands in your post-covers bucket."}
+            </div>
+            {uploadError && (
+              <div className="form-msg err" style={{ marginTop: 8 }}>
+                {uploadError}
+              </div>
+            )}
+          </div>
+
+          <div className="form-row">
+            <label htmlFor="cover">…or paste an image URL</label>
             <input
               id="cover" type="url"
               value={coverImageUrl} onChange={(e) => setCoverImageUrl(e.target.value)}
               placeholder="https://images.unsplash.com/..."
             />
-            <div className="hint">Paste any HTTPS image URL.</div>
+            <div className="hint">Any HTTPS image URL works (uploads land here too).</div>
           </div>
 
           {coverImageUrl && (
