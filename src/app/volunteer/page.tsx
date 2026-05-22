@@ -1,5 +1,6 @@
 import Masthead from "@/components/Masthead";
 import Footer from "@/components/Footer";
+import ApplicationForm from "./ApplicationForm";
 
 export default function VolunteerPage() {
   return (
@@ -113,41 +114,6 @@ function Role({ n, title, body, meta, photo }: {
         <div className="meta"><div>{meta[0]}</div><div>{meta[1]}</div></div>
       </div>
     </a>
-  );
-}
-
-function ApplicationForm() {
-  // Non-functional placeholder (the public site doesn't write to the DB).
-  // In a future iteration this could POST to /api/applications.
-  return (
-    <form className="form-card reveal d2" action="#" onSubmit={(e) => e.preventDefault()}>
-      <div className="form-row two">
-        <div><label htmlFor="fn">First name</label><input id="fn" name="fn" type="text" required /></div>
-        <div><label htmlFor="ln">Last name</label><input id="ln" name="ln" type="text" required /></div>
-      </div>
-      <div className="form-row"><label htmlFor="em">Email</label><input id="em" name="em" type="email" required placeholder="you@domain.edu" /></div>
-      <div className="form-row two">
-        <div><label htmlFor="rl">Role</label>
-          <select id="rl" name="rl" defaultValue="01">
-            <option value="01">01 · Blood-pressure station</option>
-            <option value="02">02 · Translator</option>
-            <option value="03">03 · Workshop co-leader</option>
-            <option value="04">04 · Newsroom fact-checker</option>
-            <option value="05">05 · Mobile-unit shadow</option>
-            <option value="06">06 · Outreach lead</option>
-          </select>
-        </div>
-        <div><label htmlFor="hr">Hours / week</label>
-          <select id="hr" name="hr" defaultValue="2-4">
-            <option>2–4</option><option>4–6</option><option>6–8</option><option>8+</option>
-          </select>
-        </div>
-      </div>
-      <div className="form-row"><label htmlFor="ms">Why this role?</label>
-        <textarea id="ms" name="ms" style={{ minHeight: 100 }} placeholder="Three or four sentences are plenty." />
-      </div>
-      <button type="submit" className="form-submit">Submit application</button>
-    </form>
   );
 }
 
