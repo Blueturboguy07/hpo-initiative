@@ -1,37 +1,58 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+type Mode = "signin" | "register";
+
 export default function LoginForm({ initialError }: { initialError: string | null }) {
+  const router = useRouter();
+  const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
-    initialError ? "error" : "idle",
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ kind: "ok" | "err"; text: string } | null>(
+    initialError ? { kind: "err", text: initialError } : null,
   );
-  const [msg, setMsg] = useState<string | null>(initialError);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!email) return;
-    setStatus("sending");
+    if (busy) return;
+    setBusy(true);
     setMsg(null);
 
     const supabase = createClient();
-    const siteUrl =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (typeof window !== "undefined" ? window.location.origin : "");
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: { emailRedirectTo: `${siteUrl}/auth/callback` },
-    });
+    const em = email.trim().toLowerCase();
 
+    // First-time setup: create the account (allowlist-gated server side),
+    // then fall through to a normal password sign-in.
+    if (mode === "register") {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: em, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setBusy(false);
+        // If the account already exists, nudge them to plain sign-in.
+        if (res.status === 409) setMode("signin");
+        setMsg({ kind: "err", text: data.error ?? "Couldn't set up the account." });
+        return;
+      }
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email: em, password });
     if (error) {
-      setStatus("error");
-      setMsg(error.message);
+      setBusy(false);
+      setMsg({ kind: "err", text: error.message });
       return;
     }
-    setStatus("sent");
-    setMsg("Check your inbox. The link works once and expires in an hour.");
+
+    // Signed in. The /admin layout re-checks the allowlist server-side.
+    router.push("/admin");
+    router.refresh();
   }
 
   return (
@@ -47,26 +68,67 @@ export default function LoginForm({ initialError }: { initialError: string | nul
           placeholder="you@domain.edu"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          disabled={status === "sending" || status === "sent"}
+          disabled={busy}
         />
-        <div className="hint">No password. We'll email you a one-tap link.</div>
       </div>
-      <button
-        type="submit"
-        className="form-submit"
-        disabled={status === "sending" || status === "sent"}
-      >
-        {status === "sending"
-          ? "Sending..."
-          : status === "sent"
-          ? "Sent ✓"
-          : "Send magic link"}
-      </button>
-      {msg && (
-        <div className={`form-msg ${status === "error" ? "err" : "ok"}`}>
-          {msg}
+
+      <div className="form-row">
+        <label htmlFor="password">Password</label>
+        <input
+          id="password"
+          name="password"
+          type="password"
+          required
+          minLength={8}
+          autoComplete={mode === "register" ? "new-password" : "current-password"}
+          placeholder={mode === "register" ? "Pick a password (8+ chars)" : "Your password"}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={busy}
+        />
+        <div className="hint">
+          {mode === "register"
+            ? "First time — this becomes your password."
+            : "8+ characters."}
         </div>
-      )}
+      </div>
+
+      <button type="submit" className="form-submit" disabled={busy}>
+        {busy
+          ? mode === "register"
+            ? "Setting up…"
+            : "Signing in…"
+          : mode === "register"
+          ? "Create account & sign in"
+          : "Sign in"}
+      </button>
+
+      {msg && <div className={`form-msg ${msg.kind === "err" ? "err" : "ok"}`}>{msg.text}</div>}
+
+      <button
+        type="button"
+        onClick={() => {
+          setMode(mode === "signin" ? "register" : "signin");
+          setMsg(null);
+        }}
+        style={{
+          marginTop: 16,
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          fontFamily: "var(--mono)",
+          fontSize: 11,
+          letterSpacing: ".14em",
+          textTransform: "uppercase",
+          color: "var(--ink-soft)",
+          borderBottom: "1px solid var(--rule)",
+        }}
+      >
+        {mode === "signin"
+          ? "First time? Set up your account →"
+          : "← Already have a password? Sign in"}
+      </button>
     </form>
   );
 }

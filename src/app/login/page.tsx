@@ -23,13 +23,13 @@ export default async function LoginPage({
 
         <div className="login-card">
           <div className="login-side">
-            <div className="kicker">Editor sign-in · Magic link</div>
+            <div className="kicker">Editor sign-in · Email &amp; password</div>
             <h1>The <em>masthead.</em></h1>
             <p>
-              Only allowlisted editors can publish. Enter your email; if you are on the list, a one-tap sign-in link will be in your inbox in about ten seconds.
+              Only allowlisted editors can publish. Sign in with your email and password.
             </p>
             <p className="fine">
-              We do not store passwords and we do not require email verification. The link itself is the verification.
+              First time? Hit "Set up your account" below to pick a password — it works only for emails already on the editor allowlist. No verification email, no waiting.
             </p>
           </div>
 

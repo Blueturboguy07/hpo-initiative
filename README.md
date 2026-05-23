@@ -7,7 +7,7 @@ A small editorial site (Front Page · About · The Practice · Field Notes · Cl
 ## Stack
 
 - **Next.js 15** (App Router, TypeScript)
-- **Supabase** — Postgres for posts + an admin allowlist, Auth for magic-link sign-in
+- **Supabase** — Postgres for posts + an admin allowlist, Auth for email + password sign-in, Storage for cover images
 - **react-markdown + remark-gfm** — renders post bodies
 - No Tailwind. The bespoke editorial styling lives in `src/styles/globals.css`.
 
@@ -28,7 +28,7 @@ hpo-redesign/
 │   │   ├── compass/page.tsx            # /compass       (lists compass_interview posts)
 │   │   │   └── [slug]/page.tsx
 │   │   ├── volunteer/page.tsx
-│   │   ├── login/                      # magic-link sign-in
+│   │   ├── login/                      # email + password sign-in / first-time setup
 │   │   ├── auth/callback/route.ts      # Supabase OAuth callback
 │   │   ├── admin/                      # gated; only allowlisted emails
 │   │   │   ├── page.tsx                #   dashboard
@@ -85,15 +85,13 @@ supabase db push
 In your Supabase project, go to **Authentication → Providers → Email**:
 
 - **Enable Email** ✓
-- **Confirm email** — **OFF** (per the brief — magic-link click is the verification)
-- **Enable email magic links** — ✓ (this is on by default)
+- **Confirm email** — **OFF** (accounts are created pre-confirmed via the admin API, so no verification email is ever sent)
 
 Then **Authentication → URL Configuration**:
 
 - **Site URL:** `http://localhost:3000` (for local dev). Switch to your Vercel URL after deploy.
-- **Redirect URLs (allowed):** add both
-  - `http://localhost:3000/auth/callback`
-  - `https://your-vercel-domain.com/auth/callback`
+
+Auth is **email + password**. There's no magic link and no verification email — the first-time "Set up your account" flow creates a pre-confirmed user, gated to emails already on the `admins` allowlist.
 
 ## 5 · Wire up environment variables
 
@@ -123,9 +121,9 @@ Open `http://localhost:3000`. The public pages render with empty states ("The ne
 ### First sign-in
 
 1. Visit `http://localhost:3000/login`
-2. Enter one of the two seeded emails
-3. Click the link in your inbox
-4. You land at `/admin`
+2. Click **"First time? Set up your account →"**
+3. Enter one of the two seeded emails and pick a password (8+ chars)
+4. You're signed in and land at `/admin`. Next time, just use **Sign in** with the same email + password.
 
 ## 7 · Posts
 
@@ -139,8 +137,8 @@ Open `http://localhost:3000`. The public pages render with empty states ("The ne
 ## 8 · Admin allowlist
 
 `/admin/admins` →
-- Anyone with an allowlisted email can sign in via magic link
-- Add an editor → they go to `/login` → enter their email → click the link → land in `/admin`
+- Anyone with an allowlisted email can create an account + sign in
+- Add an editor → they go to `/login` → "Set up your account" → pick a password → land in `/admin`
 - You can't remove yourself, and you can't remove the last admin (both safeguarded server-side)
 
 ## 9 · Deploy to Vercel
@@ -149,7 +147,7 @@ Open `http://localhost:3000`. The public pages render with empty states ("The ne
 2. **vercel.com → Add New → Project →** import the repo.
 3. **Environment Variables** — paste the same four values from `.env.local` (set `NEXT_PUBLIC_SITE_URL` to your `https://*.vercel.app` URL).
 4. Deploy.
-5. Back in Supabase → **Auth → URL Configuration**, add your `https://*.vercel.app/auth/callback` to the allowlist and update the Site URL.
+5. Back in Supabase → **Auth → URL Configuration**, update the **Site URL** to your `https://*.vercel.app` domain.
 
 That's it.
 
@@ -159,5 +157,5 @@ That's it.
 
 - **Caching:** `/field` and `/compass` list pages revalidate every 60 s. When you publish a post you may see a one-minute delay on the public pages. Detail pages also revalidate at 60 s. Admin pages are `force-dynamic`.
 - **Row Level Security:** `posts` is anon-readable only for `published = true`. The `admins` table has no anon policy at all — it's invisible to the public client and only the service-role can read or write it. All admin mutations go through `/api/admin/*` routes that call `requireAdmin()` first.
-- **No password storage.** Email confirmation is off because magic-link verification *is* the email check. If you ever want to require password + 2FA, you can flip that on in Supabase Auth settings without changing application code (just add a `<password>` field to `/login`).
+- **Auth = email + password, allowlist-gated.** Registration only works for emails on the `admins` table, and accounts are created pre-confirmed (no verification email). Sign-in is `supabase.auth.signInWithPassword`; the `/admin` layout re-checks the allowlist server-side on every request. To rotate a forgotten password, use Supabase Studio → Authentication → Users → Reset.
 - **Images** are hot-linked from `images.unsplash.com` and `picsum.photos` as placeholders. Replace with your own uploads (Supabase Storage gives you a bucket you can point `cover_image_url` at).
